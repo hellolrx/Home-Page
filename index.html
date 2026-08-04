@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rixi Liang - AI Security Engineer</title>
+    
+    <!-- 1. 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 2. 引入 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- 3. 引入 Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=JetBrains+Mono:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
+
+    <!-- 4. 配置 Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        hand: ['Pacifico', 'cursive'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    colors: {
+                        'cyber-blue': '#00f3ff',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- 5. 引入 Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- 6. 引入图标库 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css">
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            /* === 名字故障效果 === */
+            .glitch-text { 
+                position: relative; 
+            }
+            .glitch-text::before, .glitch-text::after {
+                content: attr(data-text); 
+                position: absolute; 
+                top: 0; 
+                left: 0; 
+                width: 100%; 
+                height: 100%;
+            }
+            .glitch-text::before {
+                left: 2px; 
+                text-shadow: -1px 0 #ff00c1; 
+                clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+                animation: glitch-anim 3s infinite linear alternate-reverse;
+            }
+            .glitch-text::after {
+                left: -2px; 
+                text-shadow: -1px 0 #00fff9; 
+                clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+                animation: glitch-anim2 2s infinite linear alternate-reverse;
+            }
+
+            /* 图标/奖牌 故障效果 */
+            .glitch-icon {
+                @apply text-white relative;
+                filter: drop-shadow(-2px 0px 0px rgba(255, 0, 193, 0.7)) 
+                        drop-shadow(2px 0px 0px rgba(0, 243, 255, 0.7));
+                animation: glitch-shake 3s infinite alternate;
+            }
+
+            /* 电镀银文字效果 */
+            .text-silver {
+                @apply bg-clip-text text-transparent bg-gradient-to-b from-white via-gray-200 to-gray-500;
+                filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.5));
+            }
+
+            .skill-card {
+                @apply bg-[#111] border border-white/10 rounded-xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
+            }
+            .skill-tag {
+                @apply px-3 py-1 text-xs font-mono text-gray-400 bg-white/5 border border-transparent rounded-md transition-colors;
+            }
+        }
+        
+        @keyframes glitch-anim {
+            0% { clip-path: inset(10% 0 80% 0); } 
+            100% { clip-path: inset(30% 0 30% 0); }
+        }
+        @keyframes glitch-anim2 {
+            0% { clip-path: inset(80% 0 10% 0); } 
+            100% { clip-path: inset(50% 0 30% 0); }
+        }
+        @keyframes glitch-shake {
+            0% { transform: translate(0, 0); opacity: 1; }
+            5% { transform: translate(-2px, 2px); }
+            10% { transform: translate(2px, -2px); }
+            15% { transform: translate(0, 0); }
+            100% { transform: translate(0, 0); }
+        }
+
+        body { background-color: #050505; }
+
+        .footer-safe-area {
+            padding-bottom: 6rem;
+            padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+        }
+
+        @media (max-width: 640px) {
+            .footer-safe-area {
+                padding-bottom: 5rem;
+                padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+            }
+        }
+
+        .footer-hand-text {
+            display: inline-block;
+            padding-bottom: 0.5rem;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+        #canvas-container canvas { outline: none; }
+    </style>
+</head>
+<body class="text-gray-300 font-sans selection:bg-purple-500 selection:text-white overflow-x-hidden">
+
+    <div id="app">
+        <!-- 背景光效 -->
+        <div class="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+            <div class="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-900/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+            <div class="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-green-900/10 rounded-full blur-[100px]"></div>
+        </div>
+
+        <!-- 导航栏 -->
+        <nav class="fixed top-0 w-full z-50 backdrop-blur-md border-b border-white/5 bg-black/50 px-4 py-3 md:px-6 md:py-4 flex justify-between items-center">
+            <div class="font-mono text-base md:text-lg font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-purple-500">
+                &lt;Rixi.Liang /&gt;
+            </div>
+            <div class="hidden md:flex gap-8 text-xs font-mono text-gray-500">
+                <a href="#about" class="hover:text-white transition-colors">./PROFILE</a>
+                <a href="#skills" class="hover:text-white transition-colors">./SKILLS</a>
+                <a href="#research" class="hover:text-white transition-colors">./RESEARCH</a>
+                <a href="#projects" class="hover:text-white transition-colors">./LOGS</a>
+            </div>
+            <a :href="'https://' + profile.github" target="_blank" class="text-white hover:text-purple-400 transition">
+                <i data-lucide="github" class="w-5 h-5"></i>
+            </a>
+        </nav>
+
+        <main class="relative z-10 container mx-auto px-6 pt-28 pb-20">
+            
+            <!-- Hero Section -->
+            <section id="about" class="mb-20 flex flex-col xl:flex-row items-center justify-between gap-8">
+                
+                <!-- 左侧：文字 -->
+                <div class="space-y-6 w-full xl:w-[35%] z-20 order-2 xl:order-1">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-green-500/30 bg-green-500/10 text-green-400 text-xs font-mono">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        System Online: Available for Hire
+                    </div>
+                    
+                    <h1 class="text-5xl font-black tracking-tight text-white leading-tight">
+                        I am <span class="glitch-text relative inline-block text-white" :data-text="profile.englishName">{{ profile.englishName }}</span>
+                    </h1>
+                    <h2 class="text-2xl text-gray-400 font-light">
+                        {{ profile.title }}
+                    </h2>
+                    
+                    <p class="text-lg text-gray-500 leading-relaxed">
+                        Master Student at <span class="text-white">City University of Macau</span>. 
+                        Focusing on <span class="text-purple-400">AI Security</span> (Backdoor Defense) and 
+                        <span class="text-green-400">LLM Application Architecture</span>.
+                    </p>
+
+                    <div class="flex flex-wrap gap-4 pt-4">
+                        <button @click="copyEmail" class="group flex items-center gap-2 px-6 py-3 bg-white text-black font-bold rounded hover:bg-purple-50 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                            <i data-lucide="mail" class="w-4 h-4"></i>
+                            <span>Contact Me</span>
+                        </button>
+                        <a :href="'https://' + profile.github" target="_blank" class="flex items-center gap-2 px-6 py-3 border border-white/20 rounded text-white hover:bg-white/10 hover:border-white transition-all font-mono">
+                            <i data-lucide="github" class="w-4 h-4"></i>
+                            <span>Github</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 中间：3D 地球 -->
+                <div class="w-full xl:w-[35%] h-[450px] md:h-[500px] flex items-center justify-center order-1 xl:order-2 relative">
+                    <div id="canvas-container">
+                        <div id="earth-loading" class="absolute inset-0 flex items-center justify-center text-green-400 font-mono text-xs animate-pulse z-50">
+                            [ INITIALIZING SYSTEM ... ]
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：数据卡片 -->
+                <div class="w-full xl:w-[30%] grid grid-cols-2 gap-4 z-20 order-3">
+                    <div class="col-span-2 bg-gradient-to-br from-[#111] to-black border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
+                        <div class="absolute top-6 right-6 flex flex-col items-center justify-center z-20">
+                            <i data-lucide="award" class="w-16 h-16 glitch-icon opacity-90"></i>
+                        </div>
+                        <div class="text-xs font-mono text-gray-500 mb-2 relative z-10">ACADEMIC PERFORMANCE</div>
+                        <div class="flex items-end gap-2 relative z-10">
+                            <span class="text-5xl font-bold text-white">{{ profile.education.gpa.split('/')[0] }}</span>
+                            <span class="text-xl text-gray-600 mb-1">/ 4.0</span>
+                        </div>
+                        <div class="mt-2 inline-block px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded font-mono border border-green-500/30 relative z-10">
+                            Rank: {{ profile.education.rank }}
+                        </div>
+                        <div class="mt-4 text-sm text-gray-400 border-t border-white/5 pt-3 relative z-10">
+                            {{ profile.education.award }}
+                        </div>
+                    </div>
+
+                    <div class="bg-[#111] border border-white/10 rounded-2xl p-5 flex flex-col justify-between hover:border-purple-500/50 transition-colors">
+                        <i data-lucide="terminal" class="w-6 h-6 text-purple-500 mb-2"></i>
+                        <div>
+                            <div class="text-xs text-gray-500 font-mono">RESEARCH</div>
+                            <div class="text-white font-bold">KSEM Accepted</div>
+                        </div>
+                    </div>
+                    <div class="bg-[#111] border border-white/10 rounded-2xl p-5 flex flex-col justify-between hover:border-green-500/50 transition-colors">
+                        <i data-lucide="code" class="w-6 h-6 text-green-500 mb-2"></i>
+                        <div>
+                            <div class="text-xs text-gray-500 font-mono">STACK</div>
+                            <div class="text-white font-bold">Vue3 + FastAPI</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Skills Section -->
+            <section id="skills" class="mb-32">
+                <h3 class="text-2xl font-mono mb-8 flex items-center gap-3">
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500 font-bold text-3xl italic font-mono">01.</span> 
+                    <span class="text-silver font-bold tracking-wide">Technical_Arsenal</span>
+                    <span class="h-px bg-gradient-to-r from-white/20 to-transparent flex-1"></span>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- 1. AI & LLM -->
+                    <div class="bg-[#0a0a0a] border border-white/5 rounded-2xl p-8 hover:border-purple-500/20 transition-colors duration-500">
+                        <div class="text-center mb-8">
+                            <h4 class="text-xl font-bold text-gray-200 mb-1">AI & LLM</h4>
+                            <div class="text-xs text-gray-500 font-mono">Core Competence</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div v-for="s in skills.ai" :key="s.name" class="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all group">
+                                <i v-if="s.icon.startsWith('devicon')" :class="[s.icon, 'text-2xl']"></i>
+                                <i v-else :data-lucide="s.icon.split(' ')[0].replace('icon-', '')" :class="['w-6 h-6 transition-colors group-hover:text-white', s.icon.includes(' ') ? s.icon.split(' ').slice(1).join(' ') : 'text-purple-400']"></i>
+                                <span class="text-sm text-gray-300 font-medium group-hover:text-white">{{ s.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. AI Security -->
+                    <div class="bg-[#0a0a0a] border border-white/5 rounded-2xl p-8 hover:border-red-500/20 transition-colors duration-500">
+                        <div class="text-center mb-8">
+                            <h4 class="text-xl font-bold text-gray-200 mb-1">AI Security</h4>
+                            <div class="text-xs text-gray-500 font-mono">Research Focus</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div v-for="s in skills.security" :key="s.name" class="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all group">
+                                <i v-if="s.icon.startsWith('devicon')" :class="[s.icon, 'text-2xl']"></i>
+                                <i v-else :data-lucide="s.icon.split(' ')[0].replace('icon-', '')" :class="['w-6 h-6 transition-colors group-hover:text-white', s.icon.includes(' ') ? s.icon.split(' ').slice(1).join(' ') : 'text-red-400']"></i>
+                                <span class="text-sm text-gray-300 font-medium group-hover:text-white">{{ s.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Backend -->
+                    <div class="bg-[#0a0a0a] border border-white/5 rounded-2xl p-8 hover:border-blue-500/20 transition-colors duration-500">
+                        <div class="text-center mb-8">
+                            <h4 class="text-xl font-bold text-gray-200 mb-1">Backend Engineering</h4>
+                            <div class="text-xs text-gray-500 font-mono">Infrastructure</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div v-for="s in skills.backend" :key="s.name" class="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all group">
+                                <i v-if="s.icon.startsWith('devicon')" :class="[s.icon, 'text-2xl']"></i>
+                                <i v-else :data-lucide="s.icon.split(' ')[0].replace('icon-', '')" :class="['w-6 h-6 transition-colors group-hover:text-white', s.icon.includes(' ') ? s.icon.split(' ').slice(1).join(' ') : 'text-blue-400']"></i>
+                                <span class="text-sm text-gray-300 font-medium group-hover:text-white">{{ s.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Frontend -->
+                    <div class="bg-[#0a0a0a] border border-white/5 rounded-2xl p-8 hover:border-green-500/20 transition-colors duration-500">
+                        <div class="text-center mb-8">
+                            <h4 class="text-xl font-bold text-gray-200 mb-1">Frontend & Tools</h4>
+                            <div class="text-xs text-gray-500 font-mono">Visual & Interaction</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div v-for="s in skills.frontend" :key="s.name" class="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all group">
+                                <i v-if="s.icon.startsWith('devicon')" :class="[s.icon, 'text-2xl']"></i>
+                                <i v-else :data-lucide="s.icon.split(' ')[0].replace('icon-', '')" :class="['w-6 h-6 transition-colors group-hover:text-white', s.icon.includes(' ') ? s.icon.split(' ').slice(1).join(' ') : 'text-green-400']"></i>
+                                <span class="text-sm text-gray-300 font-medium group-hover:text-white">{{ s.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Research Section -->
+            <section id="research" class="mb-32">
+                <h3 class="text-2xl font-mono mb-8 flex items-center gap-3">
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 font-bold text-3xl italic font-mono">02.</span> 
+                    <span class="text-silver font-bold tracking-wide">Research_Output</span>
+                    <span class="h-px bg-gradient-to-r from-white/20 to-transparent flex-1"></span>
+                </h3>
+
+                <div class="w-full bg-[#0a0a0a] border border-white/10 rounded-lg overflow-hidden font-mono text-sm shadow-2xl">
+                    <div class="bg-[#1a1a1a] px-4 py-2 flex items-center gap-2 border-b border-white/5">
+                        <div class="flex gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500/50"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500/50"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500/50"></div>
+                        </div>
+                        <div class="ml-4 text-gray-500">~/research/publications/ksem_2024.tex</div>
+                    </div>
+                    
+                    <div class="p-6 md:p-8 overflow-x-auto">
+                        <div v-for="(paper, index) in research" :key="index" class="space-y-4">
+                            <div class="flex gap-4">
+                                <span class="text-gray-600 select-none">01</span>
+                                <span class="text-purple-400">\title</span><span class="text-gray-300">{</span><span class="text-green-300 font-bold">{{ paper.title }}</span><span class="text-gray-300">}</span>
+                            </div>
+                            <div class="flex gap-4">
+                                <span class="text-gray-600 select-none">02</span>
+                                <span class="text-purple-400">\author</span><span class="text-gray-300">{</span><span class="text-yellow-200">{{ paper.role }}</span><span class="text-gray-300">, ...}</span>
+                            </div>
+                            <div class="flex gap-4">
+                                <span class="text-gray-600 select-none">03</span>
+                                <span class="text-purple-400">\status</span><span class="text-gray-300">{</span><span class="text-blue-300">{{ paper.conference }}</span><span class="text-gray-300">}</span>
+                            </div>
+                            <div class="flex gap-4">
+                                <span class="text-gray-600 select-none">04</span>
+                                <span class="text-gray-500 italic">// {{ paper.subtitle }}</span>
+                            </div>
+                            <div class="flex gap-4">
+                                <span class="text-gray-600 select-none">05</span>
+                                <span class="text-gray-500 italic">// {{ paper.desc }}</span>
+                            </div>
+                            <div class="flex gap-4 mt-4">
+                                <span class="text-gray-600 select-none">>></span>
+                                <div class="flex gap-2">
+                                    <span v-for="tag in paper.tags" :key="tag" class="px-2 py-0.5 bg-white/5 text-gray-400 rounded text-xs">
+                                        {{ tag }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Experience Section -->
+            <section id="projects" class="mb-32">
+                <h3 class="text-2xl font-mono mb-12 flex items-center gap-3">
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-rose-500 font-bold text-3xl italic font-mono">03.</span> 
+                    <span class="text-silver font-bold tracking-wide">System_Logs (Experience)</span>
+                    <span class="h-px bg-gradient-to-r from-white/20 to-transparent flex-1"></span>
+                </h3>
+
+                <div class="relative border-l border-white/10 ml-3 md:ml-6 space-y-16">
+                    <div v-for="(job, index) in experience" :key="index" class="relative pl-8 md:pl-12 group">
+                        <div class="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-gray-600 group-hover:bg-green-400 group-hover:shadow-[0_0_10px_#4ade80] transition-all duration-300"></div>
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                            <div>
+                                <h4 class="text-xl md:text-2xl font-bold text-white group-hover:text-green-400 transition-colors">
+                                    {{ job.role }}
+                                </h4>
+                                <div class="text-lg text-gray-400">{{ job.company }}</div>
+                            </div>
+                            <div class="font-mono text-sm text-gray-500 mt-1 sm:mt-0 bg-white/5 px-3 py-1 rounded">
+                                {{ job.period }}
+                            </div>
+                        </div>
+                        <div class="space-y-6">
+                            <div v-for="(proj, pIndex) in job.projects" :key="pIndex" class="bg-[#111] p-5 rounded-xl border border-white/5 hover:border-white/20 transition-colors">
+                                <h5 class="text-lg font-bold text-gray-200 mb-2 flex items-center gap-2">
+                                    <i data-lucide="chevron-right" class="w-4 h-4 text-purple-500"></i>
+                                    {{ proj.name }}
+                                </h5>
+                                <p class="text-gray-400 text-sm leading-relaxed mb-4">
+                                    {{ proj.detail }}
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    <span v-for="t in proj.tech" :key="t" class="px-2 py-1 bg-purple-900/20 text-purple-300 text-xs rounded border border-purple-500/20">
+                                        {{ t }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Awards Section -->
+            <section class="mb-20">
+                <h3 class="text-xl font-mono mb-6 text-gray-400">:: Certificates_&_Awards</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div v-for="(award, idx) in awards" :key="idx" class="group relative p-4 bg-gradient-to-r from-white/5 to-transparent rounded-lg border border-white/10 hover:border-yellow-500/50 transition-all duration-300 overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500/50 group-hover:bg-yellow-500 transition-colors"></div>
+                        <div class="flex items-center gap-3 relative z-10">
+                            <div class="p-2 bg-yellow-500/10 rounded-full group-hover:bg-yellow-500/20 transition-colors">
+                                <i data-lucide="award" class="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform"></i>
+                            </div>
+                            <span class="text-sm text-gray-300 group-hover:text-white font-medium tracking-wide transition-colors">{{ award }}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer-safe-area border-t border-white/10 bg-[#020202] pt-12 text-center">
+            <div class="font-mono text-gray-600 text-sm mb-6">
+                user@liangrixi:~$ shutdown -h now
+            </div>
+            <div class="footer-hand-text font-hand text-3xl text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-purple-500 animate-pulse select-none">
+                Rixi's Space@2025
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const { createApp, onMounted, onUpdated } = Vue;
+
+        createApp({
+            setup() {
+                const profile = {
+                    name: "梁日僖",
+                    englishName: "Rixi Liang",
+                    title: "AI Security & LLM Engineer",
+                    email: "liangrx0501@gmail.com",
+                    phone: "18933378389",
+                    github: "github.com/hellolrx",
+                    education: {
+                        school: "澳门城市大学 (City University of Macau)",
+                        degree: "计算机科学硕士",
+                        period: "2024.09 - 至今",
+                        gpa: "3.96 / 4.0",
+                        rank: "1 / 58",
+                        award: "霍英東獎基金會獎學金"
+                    }
+                };
+
+                const skills = {
+                    ai: [
+                        { name: "PyTorch", icon: "devicon-pytorch-original colored" },
+                        { name: "Transformers", icon: "icon-share-2 text-blue-500" }, // 神经网络/连接图标
+                        { name: "vLLM", icon: "icon-cpu text-cyan-400" }, 
+                        { name: "Hugging Face", icon: "icon-smile text-yellow-400" }, 
+                        { name: "RAG", icon: "icon-database" },
+                        { name: "Agent", icon: "icon-bot" }
+                    ],
+                    security: [
+                        { name: "Backdoor Defense", icon: "icon-shield" },
+                        { name: "MIA", icon: "icon-eye text-red-500" },
+                        { name: "Adv Training", icon: "icon-swords" },
+                        { name: "Robustness", icon: "icon-shield-check" }
+                    ],
+                    backend: [
+                        { name: "FastAPI", icon: "devicon-fastapi-plain colored" },
+                        { name: "SpringBoot", icon: "devicon-spring-original colored" },
+                        { name: "MySQL", icon: "devicon-mysql-plain colored" },
+                        { name: "Redis", icon: "devicon-redis-plain colored" },
+                        { name: "WebSocket", icon: "icon-plug" }
+                    ],
+                    frontend: [
+                        { name: "Vue 3", icon: "devicon-vuejs-plain colored" },
+                        { name: "Vite", icon: "devicon-vitejs-plain colored" },
+                        { name: "TypeScript", icon: "devicon-typescript-plain colored" },
+                        { name: "Tailwind", icon: "devicon-tailwindcss-original colored" },
+                        { name: "Cursor", icon: "icon-mouse-pointer-2 text-blue-400" },
+                        { name: "Gemini", icon: "icon-sparkles text-yellow-300" }
+                    ]
+                };
+
+                const research = [
+                    {
+                        title: "BackdoorHunter:Poisoned Training Data Removal via Contrastive Responses under Pruned Models",
+                        subtitle: "Poisoned Training Data Removal via Contrastive Responses under Pruned Models",
+                        role: "主要研究者 (First Author)",
+                        conference: "KSEM (Accepted) - CCF-C",
+                        desc: "设计并验证了 PMRF 算法。通过模型剪枝和对比响应分析，有效识别并清除有毒数据，提升模型鲁棒性。",
+                        tags: ["AI Security", "Model Pruning", "Data Cleansing"],
+                        link: "#"
+                    }
+                ];
+
+                const experience = [
+                    {
+                        company: "深圳市智想无界科技有限公司",
+                        role: "算法工程师 (大模型应用方向)",
+                        period: "2025.09 - 2026.01",
+                        projects: [
+                            {
+                                name: "实时语音分析系统",
+                                tech: ["FastAPI", "WebSocket", "FunASR", "Qwen3", "CAM++"],
+                                detail: "主导设计医患对话分析系统。构建高并发语音流后端，集成 FunASR 与 CAM++ 实现说话人日志；设计 VAD-ASR-LLM 流式架构，将文本实时送入 Qwen3 进行智能修正。"
+                            },
+                            {
+                                name: "混合式信息提取方案",
+                                tech: ["RAG", "bge-large-zh", "Vector DB", "vLLM"],
+                                detail: "创新设计 '向量快筛 + LLM精抽' 架构。利用 PyTorch 余弦相似度进行低成本语义匹配，复杂内容无缝交由 Qwen3 处理，平衡了延迟与精度。"
+                            }
+                        ]
+                    },
+                    {
+                        company: "WeatherWhisper 智能天气应用",
+                        role: "全栈开发者 (个人项目)",
+                        period: "2025.08",
+                        projects: [
+                            {
+                                name: "RAG 智能穿衣建议",
+                                tech: ["Vue3", "FastAPI", "Pinecone", "Gemini 1.5 Flash"],
+                                detail: "集成 Pinecone 向量数据库与 Gemini 生成模型，实现基于天气数据的个性化穿搭建议。采用前后端分离架构与异步邮件推送系统。"
+                            }
+                        ]
+                    },
+                    {
+                        company: "AI安全研究项目",
+                        role: "研究员",
+                        period: "实验中",
+                        projects: [
+                            {
+                                name: "成员推理攻击 & 版权保护",
+                                tech: ["MIA", "Watermarking", "Gradient Analysis"],
+                                detail: "基于置信度与梯度的 MIA 策略探究隐私泄露；设计后门水印识别算法，通过分析梯度变化识别水印注入。"
+                            }
+                        ]
+                    },
+                    {
+                        company: "卫宁健康科技有限公司",
+                        role: "HIS系统实施工程师",
+                        period: "2023.11 - 2024.04",
+                        projects: [
+                            {
+                                name: "HIS系统门诊医生站",
+                                tech: ["SQL", "System Config"],
+                                detail: "负责系统配置与上线支持，深入医患数据流转与 SQL 数据处理。"
+                            }
+                        ]
+                    }
+                ];
+
+                const awards = [
+                    "系统集成项目管理工程师（中级）",
+                    "全国大学生英语六级 (CET-6)",
+                    "“东方财富杯”省赛一等奖 (2021)",
+                    "澳门城市大学 乒乓球赛男单/男双亚军",
+                    "广东医科大学网页大赛三等奖"
+                ];
+
+                const copyEmail = () => {
+                    navigator.clipboard.writeText(profile.email);
+                    alert("Email copied to clipboard: " + profile.email);
+                };
+
+                // --- Three.js: 真实地球 + 深圳呼吸信标 ---
+                const initThreeJS = () => {
+                    const container = document.getElementById('canvas-container');
+                    if (!container) return;
+
+                    // 1. 场景初始化
+                    const scene = new THREE.Scene();
+                    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+                    
+                    // 自适应相机距离：竖屏时拉远，避免地球被截断
+                    const updateCameraPosition = () => {
+                        const aspect = container.clientWidth / container.clientHeight;
+                        if (aspect < 1) {
+                            camera.position.z = 7.5; // 竖屏拉远
+                        } else {
+                            camera.position.z = 5; // 桌面默认
+                        }
+                    };
+                    updateCameraPosition();
+
+                    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                    // 优化：限制最大像素比，减轻移动端渲染压力
+                    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                    renderer.toneMapping = THREE.ReinhardToneMapping;
+                    // 确保背景完全透明
+                    renderer.setClearColor(0x000000, 0);
+                    container.appendChild(renderer.domElement);
+
+                    // 增加黑色雾效，使地球边缘柔和融入背景，消除“贴图感”
+                    scene.fog = new THREE.FogExp2(0x000000, 0.03);
+
+                    // 2. 光照系统
+                    // 增强环境光，避免地球背光面完全死黑
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
+                    scene.add(ambientLight);
+
+                    // 【关键修改】调整太阳光位置，确保它照亮中国区域 (右上前方)
+                    const sunLight = new THREE.DirectionalLight(0xffffff, 1.5); 
+                    sunLight.position.set(5, 3, 5);
+                    scene.add(sunLight);
+
+                    // Loading Manager
+                    const loadingManager = new THREE.LoadingManager();
+                    loadingManager.onLoad = () => {
+                        const loadingEl = document.getElementById('earth-loading');
+                        if (loadingEl) {
+                            loadingEl.style.transition = 'opacity 0.5s ease';
+                            loadingEl.style.opacity = '0';
+                            setTimeout(() => loadingEl.remove(), 500);
+                        }
+                    };
+
+                    // 3. 地球组
+                    const earthGroup = new THREE.Group();
+                    // 【关键修改】初始旋转：让东经114度（深圳）正对屏幕
+                    // 继续增大角度，让地球向右转更多，使中国正对屏幕
+                    earthGroup.rotation.y = 8.8; 
+                    earthGroup.rotation.x = 0.35; // 稍微倾斜一点，好看
+                    scene.add(earthGroup);
+
+                    const textureLoader = new THREE.TextureLoader(loadingManager);
+                    const earthRadius = 1.8;
+
+                    // 地球本体
+                    const earthGeo = new THREE.SphereGeometry(earthRadius, 64, 64);
+                    const earthMat = new THREE.MeshPhongMaterial({
+                        map: textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'),
+                        specular: new THREE.Color(0x333333),
+                        shininess: 15
+                    });
+                    const earth = new THREE.Mesh(earthGeo, earthMat);
+                    earthGroup.add(earth);
+
+                    // 云层
+                    const cloudGeo = new THREE.SphereGeometry(earthRadius + 0.02, 64, 64);
+                    const cloudMat = new THREE.MeshPhongMaterial({
+                        map: textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png'),
+                        transparent: true,
+                        opacity: 0.8,
+                        blending: THREE.AdditiveBlending,
+                        side: THREE.DoubleSide
+                    });
+                    const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+                    earthGroup.add(clouds);
+
+                    // 4. 深圳坐标定位 (Lat: 22.54, Lon: 114.05)
+                    function latLongToVector3(lat, lon, radius) {
+                        var phi = (90 - lat) * (Math.PI / 180);
+                        var theta = (lon + 180) * (Math.PI / 180);
+
+                        var x = -(radius * Math.sin(phi) * Math.cos(theta));
+                        var z = (radius * Math.sin(phi) * Math.sin(theta));
+                        var y = (radius * Math.cos(phi));
+
+                        return new THREE.Vector3(x, y, z);
+                    }
+
+                    // 稍微抬高一点(radius + 0.03)，防止被云层遮挡
+                    const shenzhenPos = latLongToVector3(22.5431, 114.0579, earthRadius + 0.03);
+
+                    // === 呼吸灯效果组件 ===
+
+                    // A. 实心核心 (始终保持亮绿色)
+                    const coreGeo = new THREE.SphereGeometry(0.025, 16, 16);
+                    const coreMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); 
+                    const coreDot = new THREE.Mesh(coreGeo, coreMat);
+                    coreDot.position.copy(shenzhenPos);
+                    earth.add(coreDot);
+
+                    // B. 扩散波纹圈 (用于动画)
+                    // 修改：缩小内径外径差，使波纹圈变细 (0.03 -> 0.033)
+                    const pulseGeo = new THREE.RingGeometry(0.03, 0.033, 32);
+                    const pulseMat = new THREE.MeshBasicMaterial({ 
+                        color: 0x00ff00, 
+                        transparent: true, 
+                        opacity: 0.8,
+                        side: THREE.DoubleSide 
+                    });
+                    const pulseRing = new THREE.Mesh(pulseGeo, pulseMat);
+                    pulseRing.position.copy(shenzhenPos);
+                    pulseRing.lookAt(0, 0, 0); // 让圆环贴合球面
+                    earth.add(pulseRing);
+
+
+                    // 5. 动画循环
+                    const animate = () => {
+                        requestAnimationFrame(animate);
+                        
+                        // 地球极其缓慢自转 (如果太快，刚加载看到的中国马上就转走了)
+                        earth.rotation.y += 0.0005;
+                        clouds.rotation.y += 0.0007;
+
+                        // === 呼吸灯算法 ===
+                        const time = Date.now() * 0.001; // 时间因子（调整为更平滑的速度）
+                        
+                        // 1. 核心点平滑呼吸闪烁（使用 Math.sin 实现平滑效果）
+                        const corePulse = Math.sin(time * 3) * 0.5 + 0.5; // 0 ~ 1 的平滑循环
+                        const coreScale = 1 + corePulse * 0.3; // 1.0 ~ 1.3 倍大小，更明显的呼吸效果
+                        const coreBrightness = 0.7 + corePulse * 0.3; // 亮度也跟随呼吸变化
+                        coreDot.scale.set(coreScale, coreScale, coreScale);
+                        coreDot.material.opacity = coreBrightness;
+
+                        // 2. 波纹圈平滑扩散（使用 Math.sin 实现雷达效果）
+                        // 使用正弦波创建平滑的扩散循环，周期约 2 秒
+                        const ringPhase = (time * 0.5) % (Math.PI * 2); // 0 到 2π 的循环
+                        const ringProgress = Math.sin(ringPhase * 0.5); // 映射到 0~1 的平滑曲线
+                        const normalizedProgress = (ringProgress + 1) * 0.5; // 归一化到 0~1
+                        
+                        // 波纹从 1 倍放大到 5 倍
+                        const ringScale = 1 + normalizedProgress * 4;
+                        pulseRing.scale.set(ringScale, ringScale, ringScale);
+                        
+                        // 透明度随扩散平滑减弱（使用平滑曲线）
+                        pulseRing.material.opacity = Math.max(0, (1 - normalizedProgress) * 0.8);
+
+                        renderer.render(scene, camera);
+                    };
+
+                    animate();
+
+                    window.addEventListener('resize', () => {
+                        if (!container) return;
+                        camera.aspect = container.clientWidth / container.clientHeight;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(container.clientWidth, container.clientHeight);
+                        updateCameraPosition(); // 更新相机位置
+                    });
+                };
+
+                onMounted(() => {
+                    lucide.createIcons();
+                    initThreeJS();
+                });
+
+                onUpdated(() => {
+                    lucide.createIcons();
+                });
+
+                return {
+                    profile, skills, research, experience, awards, copyEmail
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
